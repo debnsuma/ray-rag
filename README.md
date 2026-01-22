@@ -1,5 +1,9 @@
 # Building Scalable RAG for Agentic AI with Ray
 
+[![Ray](https://img.shields.io/badge/Ray-2.53+-blue)](https://docs.ray.io/)
+[![Python](https://img.shields.io/badge/Python-3.10+-green)](https://python.org)
+[![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector%20Store-orange)](https://docs.trychroma.com/)
+
 **Session Materials for [Agentic AI Summit 2026](https://www.summit.ai/)**
 **Date:** January 22, 2026
 
@@ -39,7 +43,7 @@ RAG systems are foundational to modern agentic AI applications, enabling LLMs to
 
 **Required Libraries:**
 ```
-ray
+ray>=2.53.0
 sentence-transformers
 chromadb
 transformers
@@ -54,20 +58,20 @@ pyarrow
 
 ```
 ray-rag/
-├── Module_00_Ray_Core_intro.ipynb           # Ray fundamentals
-├── Module_01_Ray_Data.ipynb                 # Distributed data processing
-├── Module_02_Embeddings_Gen_Retrieval.ipynb # Embeddings and vector DB
-├── Module_03_LLM_Ray_Actor_Processing.ipynb # LLM inference with actors
-├── Module_04_RAG_Pipelines.ipynb            # Complete RAG pipeline
-├── extra/code/                              # Supporting Python scripts
-│   ├── counter.py                           # Actor state management demo
-│   ├── memory_inspection.py                 # Memory optimization patterns
-│   ├── parallel_process.py                  # Task parallelization example
-│   ├── ray_actor.py                         # Actor pattern examples
-│   └── sequential_process.py                # Sequential baseline
-├── assets/                                  # Diagrams and images
-├── around.txt                               # Sample corpus (Around the World in 80 Days)
-└── prompts.parquet                          # Pre-generated query dataset
+├── Module_00_Ray_Core_intro.ipynb             # Ray fundamentals
+├── Module_01_Ray_Data.ipynb                   # Distributed data processing
+├── Module_02_Embeddings_Gen_Retrieval.ipynb   # Embeddings and vector DB
+├── Module_03_LLM_Ray_Actor_Processing.ipynb   # LLM inference with actors
+├── Module_04_RAG_Pipelines_Enhanced.ipynb     # Complete RAG pipeline (enhanced)
+├── extra/code/                                # Supporting Python scripts
+│   ├── counter.py                             # Actor state management demo
+│   ├── memory_inspection.py                   # Memory optimization patterns
+│   ├── parallel_process.py                    # Task parallelization example
+│   ├── ray_actor.py                           # Actor pattern examples
+│   └── sequential_process.py                  # Sequential baseline
+├── assets/                                    # Diagrams and images
+├── around.txt                                 # Sample corpus (Around the World in 80 Days)
+└── prompts.parquet                            # Pre-generated query dataset
 ```
 
 ---
@@ -145,15 +149,17 @@ Task-based inference reloads the model on every call (inefficient). Actor-based 
 
 ### Module 4: End-to-End RAG Pipeline
 
-Assembles all components into a production-grade RAG pipeline.
+Assembles all components into a production-grade RAG pipeline with comprehensive documentation and architecture diagrams.
 
 **Pipeline Stages:**
-1. **Query Ingestion** - Load prompts from Parquet
-2. **Embedding Generation** - Convert queries to vector representations
-3. **Document Retrieval** - Semantic search against vector store
-4. **Context Injection** - Augment prompts with retrieved documents
-5. **LLM Generation** - Generate responses using retrieved context
-6. **Output Persistence** - Store results to Parquet
+1. **Document Ingestion** - Load and process text corpus
+2. **Embedding Generation** - Convert documents to vector representations
+3. **Vector Storage** - Persist embeddings to ChromaDB
+4. **Query Processing** - Load prompts and generate query embeddings
+5. **Document Retrieval** - Semantic search against vector store
+6. **Context Injection** - Augment prompts with retrieved documents
+7. **LLM Generation** - Generate responses using retrieved context
+8. **Output Persistence** - Store results to Parquet
 
 **Key Pattern:**
 Chaining multiple `map_batches()` operations with different actor pools, each with appropriate resource allocations (GPU fractions, batch sizes, concurrency levels).
@@ -163,37 +169,37 @@ Chaining multiple `map_batches()` operations with different actor pools, each wi
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         RAG Pipeline Architecture                    │
-└─────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────┐
+│                         RAG Pipeline Architecture                          │
+└────────────────────────────────────────────────────────────────────────────┘
 
     Input Queries (Parquet)
            │
            ▼
-    ┌──────────────────┐
-    │  Embedder Pool   │  ← SentenceTransformer, GPU 0.1/actor
-    │  (Actor-based)   │
-    └────────┬─────────┘
-             │ queries + embeddings
-             ▼
-    ┌──────────────────┐
-    │ ChromaDB Reader  │  ← Vector similarity search
-    │  (Actor-based)   │
-    └────────┬─────────┘
-             │ queries + embeddings + retrieved docs
-             ▼
-    ┌──────────────────┐
-    │ Prompt Enhancer  │  ← Context injection
-    │  (Actor-based)   │
-    └────────┬─────────┘
-             │ enhanced prompts
-             ▼
-    ┌──────────────────┐
-    │   Chat Pool      │  ← LLM inference, GPU 0.15/actor
-    │  (Actor-based)   │
-    └────────┬─────────┘
-             │ generated responses
-             ▼
+    ┌────────────────────┐
+    │   Embedder Pool    │  ← SentenceTransformer, GPU 0.1/actor
+    │   (Actor-based)    │
+    └─────────┬──────────┘
+              │ queries + embeddings
+              ▼
+    ┌────────────────────┐
+    │  ChromaDB Reader   │  ← Vector similarity search
+    │   (Actor-based)    │
+    └─────────┬──────────┘
+              │ queries + embeddings + retrieved docs
+              ▼
+    ┌────────────────────┐
+    │  Prompt Enhancer   │  ← Context injection
+    │   (Actor-based)    │
+    └─────────┬──────────┘
+              │ enhanced prompts
+              ▼
+    ┌────────────────────┐
+    │    Chat Pool       │  ← LLM inference, GPU 0.15/actor
+    │   (Actor-based)    │
+    └─────────┬──────────┘
+              │ generated responses
+              ▼
     Output Results (Parquet)
 ```
 
@@ -203,12 +209,25 @@ Chaining multiple `map_batches()` operations with different actor pools, each wi
 
 ### Tasks vs. Actors
 
-| Aspect | Tasks | Actors |
-|--------|-------|--------|
-| State | Stateless | Stateful |
-| Use Case | Independent parallel operations | Operations requiring shared state |
-| Initialization | Per-invocation | Once at creation |
-| Best For | Data transformation, map operations | Model serving, connection pools |
+| Aspect         | Tasks                              | Actors                                  |
+|----------------|------------------------------------|-----------------------------------------|
+| State          | Stateless                          | Stateful                                |
+| Use Case       | Independent parallel operations    | Operations requiring shared state       |
+| Initialization | Per-invocation                     | Once at creation                        |
+| Best For       | Data transformation, map operations| Model serving, connection pools         |
+
+### The Callable Class Pattern
+
+```python
+class DocEmbedder:
+    def __init__(self):
+        # Expensive setup - runs ONCE per actor
+        self._model = SentenceTransformer("model-name")
+
+    def __call__(self, batch):
+        # Batch processing - runs MANY times
+        return self._model.encode(batch["text"])
+```
 
 ### Resource Allocation Patterns
 
@@ -262,4 +281,3 @@ print(ray.cluster_resources())
 - [ChromaDB Documentation](https://docs.trychroma.com/)
 - [SentenceTransformers](https://www.sbert.net/)
 - [Hugging Face Transformers](https://huggingface.co/docs/transformers/)
-
